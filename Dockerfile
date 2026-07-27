@@ -2,7 +2,7 @@
 FROM node:20-alpine AS base
 
 # Install build dependencies for better-sqlite3 and canvas native modules
-RUN apk add --no-join-no-cache --no-cache \
+RUN apk add --no-cache \
     python3 \
     make \
     g++ \
