@@ -29,6 +29,91 @@ function startServer(client) {
     // Serve React build static files (when built)
     app.use(express.static(path.join(__dirname, 'dashboard', 'dist')));
 
+    // ROOT LANDING PAGE
+    app.get('/', (req, res) => {
+        res.send(`
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>🌸 Cherry Bot 3.0 — Online Status & Dashboard</title>
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background: linear-gradient(135deg, #1e1e2e, #2d1b4e);
+                        color: #ffffff;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        min-height: 100vh;
+                        margin: 0;
+                    }
+                    .card {
+                        background: rgba(255, 255, 255, 0.08);
+                        backdrop-filter: blur(12px);
+                        border: 1px solid rgba(255, 158, 226, 0.2);
+                        padding: 40px;
+                        border-radius: 20px;
+                        text-align: center;
+                        max-width: 500px;
+                        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                    }
+                    h1 { color: #ff9ee2; margin-top: 0; }
+                    .badge {
+                        background: #2ecc71;
+                        color: #000;
+                        font-weight: bold;
+                        padding: 6px 16px;
+                        border-radius: 20px;
+                        display: inline-block;
+                        margin-bottom: 20px;
+                    }
+                    .stats {
+                        display: flex;
+                        justify-content: space-around;
+                        margin: 25px 0;
+                        background: rgba(0,0,0,0.2);
+                        padding: 15px;
+                        border-radius: 12px;
+                    }
+                    .stat-item h3 { margin: 0; color: #f1c40f; }
+                    .stat-item p { margin: 5px 0 0 0; font-size: 14px; opacity: 0.8; }
+                    a.btn {
+                        display: inline-block;
+                        background: #7c3aed;
+                        color: white;
+                        text-decoration: none;
+                        padding: 12px 24px;
+                        border-radius: 10px;
+                        font-weight: bold;
+                        transition: 0.2s;
+                    }
+                    a.btn:hover { background: #9b59b6; }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <span class="badge">🟢 ONLINE 24/7</span>
+                    <h1>🌸 Cherry Bot 3.0</h1>
+                    <p>Enterprise Discord Bot Engine & Shared Realm Tycoon</p>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <h3>${client.guilds.cache.size}</h3>
+                            <p>Active Servers</p>
+                        </div>
+                        <div class="stat-item">
+                            <h3>68</h3>
+                            <p>Slash Commands</p>
+                        </div>
+                    </div>
+                    <a href="/api/stats" class="btn">📊 View JSON REST API</a>
+                </div>
+            </body>
+            </html>
+        `);
+    });
+
     // API ENDPOINT: stats
     app.get('/api/stats', (req, res) => {
         try {
