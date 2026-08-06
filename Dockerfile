@@ -1,27 +1,30 @@
 # Production Dockerfile for Cherry Bot Ultimate
-FROM node:20-alpine AS base
+FROM node:20-slim
 
-# Install build dependencies for better-sqlite3 and canvas native modules
-RUN apk add --no-cache \
+# Install build dependencies for better-sqlite3, canvas, and @napi-rs/canvas
+RUN apt-get update && apt-get install -y \
     python3 \
     make \
     g++ \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    giflib-dev \
-    pixman-dev \
-    pangomm-dev \
-    libjpeg-turbo-dev \
-    freetype-dev
+    build-essential \
+    pkg-config \
+    libcairo2-dev \
+    libjpeg-dev \
+    libpango1.0-dev \
+    libgif-dev \
+    librsvg2-dev \
+    libpixman-1-dev \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy package descriptors
 COPY package*.json ./
 
-# Install production dependencies
-RUN npm ci --only=production
+# Install all dependencies (needed for native module compilation)
+RUN npm install --omit=dev
 
 # Copy application source code
 COPY . .
