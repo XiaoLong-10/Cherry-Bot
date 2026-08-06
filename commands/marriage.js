@@ -211,7 +211,7 @@ module.exports = {
         await interaction.deferReply();
 
         const userId = interaction.user.id;
-        const guildId = interaction.guild.id;
+        const guildId = interaction.guild ? (interaction.guild ? interaction.guild.id : 'GLOBAL') : 'GLOBAL';
         const group = interaction.options.getSubcommandGroup(false);
         const subcommand = interaction.options.getSubcommand();
 

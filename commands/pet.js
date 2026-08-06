@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const {SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, MessageFlags } = require('discord.js');
 const { createCanvas } = require('@napi-rs/canvas');
 const db = require('../database.js');
 
@@ -593,7 +593,7 @@ module.exports = {
         await interaction.deferReply();
 
         const userId = interaction.user.id;
-        const guildId = interaction.guild.id;
+        const guildId = interaction.guild ? (interaction.guild ? interaction.guild.id : 'GLOBAL') : 'GLOBAL';
         const subcommand = interaction.options.getSubcommand();
 
         // Enforce RPG character exists first
@@ -1184,7 +1184,7 @@ module.exports = {
             collector.on('collect', async i => {
                 // Ensure it is indeed their turn
                 if (i.user.id !== activeTurn.user.id) {
-                    return i.reply({ content: '❌ It is not your pet\'s turn yet! Wait for your opponent.', ephemeral: true });
+                    return i.reply({ content: '❌ It is not your pet\'s turn yet! Wait for your opponent.', flags: MessageFlags.Ephemeral });
                 }
 
                 await i.deferUpdate();

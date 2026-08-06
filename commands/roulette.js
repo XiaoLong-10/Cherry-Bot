@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const {SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../database.js');
 
 const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
@@ -29,7 +29,7 @@ module.exports = {
 
     async execute(interaction) {
         const userId = interaction.user.id;
-        const guildId = interaction.guild.id;
+        const guildId = interaction.guild ? (interaction.guild ? interaction.guild.id : 'GLOBAL') : 'GLOBAL';
         const amount = interaction.options.getInteger('amount');
         const betType = interaction.options.getString('bet_type');
         const choiceRaw = interaction.options.getString('choice').toLowerCase().trim();
@@ -39,7 +39,7 @@ module.exports = {
         if (!char || !char.char_name) {
             return interaction.reply({
                 content: '⚠️ **You must create an RPG character first!**\nUse **`/character create`** to get started.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -48,7 +48,7 @@ module.exports = {
         if (balance < amount) {
             return interaction.reply({
                 content: `❌ **Insufficient cherries!** You only have **🍒 ${balance.toLocaleString()} cherries** in your wallet.`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -56,16 +56,16 @@ module.exports = {
         let validatedChoice = choiceRaw;
         if (betType === 'color') {
             if (!['red', 'black', 'green'].includes(choiceRaw)) {
-                return interaction.reply({ content: '❌ **Invalid choice for Color!** Choose between `red`, `black`, or `green`.', ephemeral: true });
+                return interaction.reply({ content: '❌ **Invalid choice for Color!** Choose between `red`, `black`, or `green`.', flags: MessageFlags.Ephemeral });
             }
         } else if (betType === 'parity') {
             if (!['even', 'odd'].includes(choiceRaw)) {
-                return interaction.reply({ content: '❌ **Invalid choice for Parity!** Choose between `even` or `odd`.', ephemeral: true });
+                return interaction.reply({ content: '❌ **Invalid choice for Parity!** Choose between `even` or `odd`.', flags: MessageFlags.Ephemeral });
             }
         } else if (betType === 'number') {
             const num = parseInt(choiceRaw);
             if (isNaN(num) || num < 0 || num > 36) {
-                return interaction.reply({ content: '❌ **Invalid choice for Number!** Enter a specific number between `0` and `36`.', ephemeral: true });
+                return interaction.reply({ content: '❌ **Invalid choice for Number!** Enter a specific number between `0` and `36`.', flags: MessageFlags.Ephemeral });
             }
             validatedChoice = num;
         }

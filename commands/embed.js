@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const {SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ChannelType, MessageFlags } = require('discord.js');
 
 const TEMPLATES = {
     'welcome': {
@@ -111,7 +111,7 @@ module.exports = {
                         .setRequired(false))),
 
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const subcommand = interaction.options.getSubcommand();
         const targetChannel = interaction.options.getChannel('channel') || interaction.channel;

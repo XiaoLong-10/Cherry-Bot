@@ -200,7 +200,7 @@ module.exports = {
                 .setRequired(true)),
     async execute(interaction) {
         const userId = interaction.user.id;
-        const guildId = interaction.guild.id;
+        const guildId = interaction.guild ? (interaction.guild ? interaction.guild.id : 'GLOBAL') : 'GLOBAL';
         let bet = interaction.options.getInteger('bet');
 
         if (bet <= 0) {

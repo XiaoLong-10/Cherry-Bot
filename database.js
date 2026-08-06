@@ -1,7 +1,21 @@
 const Database = require('better-sqlite3');
 const path = require('path');
-// database.js
-const db = new Database(path.join(__dirname, 'economy.db'));
+const rawDb = new Database(path.join(__dirname, 'economy.db'));
+
+function safePrepare(sql) {
+    const stmt = rawDb.prepare(sql);
+    const sanitize = args => args.map(a => a === undefined ? null : a);
+    return {
+        run(...args) { return stmt.run(...sanitize(args)); },
+        get(...args) { return stmt.get(...sanitize(args)); },
+        all(...args) { return stmt.all(...sanitize(args)); }
+    };
+}
+
+const db = {
+    exec(sql) { return rawDb.exec(sql); },
+    prepare(sql) { return safePrepare(sql); }
+};
 
 // Updated to include XP and Level tracking columns
 db.exec(`
@@ -97,7 +111,18 @@ db.exec(`
         createdAt INTEGER,
         UNIQUE(guildId, triggerText)
     );
+
+    CREATE TABLE IF NOT EXISTS custom_roleplay_gifs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        actionKey TEXT,
+        gifUrl TEXT,
+        addedBy TEXT,
+        createdAt INTEGER
+    );
 `);
+
+// Auto-repair any NULL coin values in users table
+rawDb.exec("UPDATE users SET coins = 0 WHERE coins IS NULL;");
 
 // Seed progressive jackpot starting pool
 db.prepare("INSERT OR IGNORE INTO slots_jackpot (id, pool) VALUES (1, 5000)").run();
@@ -351,20 +376,68 @@ module.exports = {
         } catch(e) {}
     },
 
+    // --- 24/7 Voice Standby Methods ---
+    getVoiceStandby(guildId) {
+        return this.getSetting(`voice_standby_${guildId}`, null);
+    },
+    setVoiceStandby(guildId, channelId, options = {}) {
+        const config = {
+            guildId,
+            channelId,
+            enabled: true,
+            selfDeaf: options.selfDeaf !== undefined ? options.selfDeaf : true,
+            selfMute: options.selfMute !== undefined ? options.selfMute : false,
+            updatedAt: Date.now()
+        };
+        this.setSetting(`voice_standby_${guildId}`, config);
+        return config;
+    },
+    removeVoiceStandby(guildId) {
+        try {
+            db.prepare('DELETE FROM guild_settings WHERE settingKey = ?').run(`voice_standby_${guildId}`);
+        } catch (e) {}
+    },
+    getAllVoiceStandbys() {
+        try {
+            const rows = db.prepare("SELECT settingKey, settingVal FROM guild_settings WHERE settingKey LIKE 'voice_standby_%'").all();
+            return rows.map(r => {
+                try { return JSON.parse(r.settingVal); } catch(e) { return null; }
+            }).filter(Boolean);
+        } catch(e) {
+            return [];
+        }
+    },
+
     // --- Existing Economy Methods ---
-    getBalance(userId, guildId) {
-        db.prepare("INSERT OR IGNORE INTO users (userId, guildId) VALUES (?, ?)").run(userId, guildId);
+    getBalance(userId, guildId = 'GLOBAL') {
+        if (!userId) return 0;
+        const gId = (typeof guildId === 'string' && guildId.trim()) ? guildId : 'GLOBAL';
+        db.prepare("INSERT OR IGNORE INTO users (userId, guildId) VALUES (?, ?)").run(userId, gId);
         
         const row = db.prepare("SELECT coins FROM users WHERE userId = ?").get(userId);
-        return row ? row.coins : 0;
+        return (row && row.coins != null && !isNaN(row.coins)) ? row.coins : 0;
     },
     addCoins(userId, guildId, amount) {
+        if (!userId) return;
+        if (typeof guildId === 'number' && amount === undefined) {
+            amount = guildId;
+            guildId = 'GLOBAL';
+        }
+        const qty = Math.floor(Number(amount));
+        if (isNaN(qty) || qty <= 0) return;
         this.getBalance(userId, guildId);
-        db.prepare('UPDATE users SET coins = coins + ? WHERE userId = ?').run(amount, userId);
+        db.prepare('UPDATE users SET coins = COALESCE(coins, 0) + ? WHERE userId = ?').run(qty, userId);
     },
     deductCoins(userId, guildId, amount) {
+        if (!userId) return;
+        if (typeof guildId === 'number' && amount === undefined) {
+            amount = guildId;
+            guildId = 'GLOBAL';
+        }
+        const qty = Math.floor(Number(amount));
+        if (isNaN(qty) || qty <= 0) return;
         this.getBalance(userId, guildId);
-        db.prepare('UPDATE users SET coins = coins - ? WHERE userId = ?').run(amount, userId);
+        db.prepare('UPDATE users SET coins = MAX(0, COALESCE(coins, 0) - ?) WHERE userId = ?').run(qty, userId);
     },
     getInventory(userId) {
         return db.prepare('SELECT itemName, quantity FROM inventory WHERE userId = ?').all(userId);
@@ -717,7 +790,7 @@ module.exports = {
         return db.prepare("SELECT * FROM businesses WHERE userId = ?").all(userId);
     },
     buyBusiness(userId, type, timestamp) {
-        db.prepare("INSERT INTO businesses (userId, businessType, level, lastCollected) VALUES (?, ?, 1, ?)").run(userId, type, timestamp);
+        db.prepare("INSERT OR REPLACE INTO businesses (userId, businessType, level, lastCollected) VALUES (?, ?, 1, ?)").run(userId, type, timestamp);
         this.logTransaction(userId, 'Business Buy', `Acquired a new ${type} business 🏢`);
     },
     upgradeBusiness(userId, type) {
@@ -1160,6 +1233,21 @@ module.exports = {
     },
     resetCurrencySettings(guildId) {
         db.prepare("DELETE FROM guild_settings WHERE settingKey = ?").run(`currency_${guildId}`);
+    },
+    addCustomRoleplayGif(actionKey, gifUrl, addedBy = 'System') {
+        const lowerKey = actionKey.toLowerCase().trim();
+        return db.prepare("INSERT INTO custom_roleplay_gifs (actionKey, gifUrl, addedBy, createdAt) VALUES (?, ?, ?, ?)").run(lowerKey, gifUrl.trim(), addedBy, Date.now());
+    },
+    getCustomRoleplayGifs(actionKey) {
+        const lowerKey = actionKey.toLowerCase().trim();
+        return db.prepare("SELECT * FROM custom_roleplay_gifs WHERE actionKey = ? ORDER BY id DESC").all(lowerKey);
+    },
+    getAllCustomRoleplayGifs() {
+        return db.prepare("SELECT * FROM custom_roleplay_gifs ORDER BY actionKey ASC, id DESC").all();
+    },
+    removeCustomRoleplayGif(id) {
+        const res = db.prepare("DELETE FROM custom_roleplay_gifs WHERE id = ?").run(id);
+        return res.changes > 0;
     },
     exec(sql) {
         return db.exec(sql);

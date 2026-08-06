@@ -6,7 +6,7 @@ module.exports = {
         .setName('rank')
         .setDescription('Displays your current profile level and XP progress.'),
     async execute(interaction) {
-        const progress = db.getUserProgress(interaction.user.id, interaction.guild.id);
+        const progress = db.getUserProgress(interaction.user.id, (interaction.guild ? interaction.guild.id : 'GLOBAL'));
         const xpNeeded = progress.level * 100;
 
         // Simple text-based progress bar loader visualization

@@ -88,14 +88,15 @@ const client = new Client({
         GatewayIntentBits.GuildMembers, // Required for join/leave events
         GatewayIntentBits.MessageContent, // Necessary for reading text messages to award XP
         GatewayIntentBits.GuildEmojisAndStickers, // Required for bot to see custom emojis
-        GatewayIntentBits.GuildMessageReactions // Required if bot reads reactions
+        GatewayIntentBits.GuildMessageReactions, // Required if bot reads reactions
+        GatewayIntentBits.GuildVoiceStates // Required for voice standby & voice state tracking
     ]
 });
 
 const { loadCommands } = require('./src/handlers/commandHandler.js');
 loadCommands(client);
 
-
+const { initVoiceStandby, handleVoiceStateUpdate } = require('./src/systems/voiceStandby.js');
 
 client.once('clientReady', () => {
     console.log(`🚀 Slash Command Engine Online! Logged in as ${client.user.tag}`);
@@ -103,6 +104,9 @@ client.once('clientReady', () => {
 
     const { startStatusRotation } = require('./src/systems/statusManager.js');
     startStatusRotation(client);
+
+    // Initialize 24/7 Voice Standby mode across active servers
+    initVoiceStandby(client);
 
     // Stock Ticking Engine - Runs every 60 seconds
     setInterval(() => {
@@ -210,10 +214,17 @@ client.on('interactionCreate', async (interaction) => {
             'uwu': 'uwu',
             'rp': 'roleplay',
             'autoresponder': 'automod',
+            'ticket': 'tickets',
+            'ai': 'ai',
             'balance': 'economy', 'shop': 'economy', 'marketplace': 'economy', 'gamble': 'economy',
             'pokdeng': 'economy', 'blackjack': 'economy', 'slots': 'economy', 'roulette': 'economy',
             'klakluk': 'economy', 'scratch': 'economy', 'lottery': 'economy', 'fish': 'economy',
-            'mine': 'economy', 'farm': 'economy', 'work': 'economy', 'brew': 'economy', 'cook': 'economy'
+            'mine': 'economy', 'farm': 'economy', 'work': 'economy', 'brew': 'economy', 'cook': 'economy',
+            'daily': 'economy', 'streak': 'economy', 'stock': 'economy', 'business': 'economy',
+            'realestate': 'economy', 'delivery': 'economy', 'ledger': 'economy', 'currency': 'economy',
+            'wheel': 'economy', 'duel': 'economy', 'hunt': 'economy', 'smelt': 'economy',
+            'forge': 'economy', 'woodcut': 'economy', 'bank': 'economy', 'casino': 'economy',
+            'addcoin': 'economy', 'removecoin': 'economy', 'market': 'economy', 'housing': 'economy', 'house': 'economy'
         };
 
         const requiredPlugin = pluginMap[interaction.commandName];
@@ -248,8 +259,64 @@ client.on('interactionCreate', async (interaction) => {
     }
 
 
-    // 3. Route Buttons (Roles & Tickets)
+    // 3. Route Buttons (Roles, Tickets, & Music)
     if (interaction.isButton()) {
+        if (interaction.customId.startsWith('music_')) {
+            const { getOrCreateQueue, buildNowPlayingEmbed, buildNowPlayingButtons } = require('./src/systems/music/musicEngine.js');
+            const queueManager = getOrCreateQueue(interaction.guild.id);
+            const memberVoiceChannel = interaction.member?.voice?.channel;
+
+            if (!memberVoiceChannel) {
+                return await interaction.reply({ content: '⚠️ You must be in a voice channel to use music controls.', flags: [MessageFlags.Ephemeral] });
+            }
+
+            const action = interaction.customId.replace('music_', '');
+            if (action === 'pause') {
+                if (queueManager.isPaused) {
+                    queueManager.player.unpause();
+                    queueManager.isPaused = false;
+                } else if (queueManager.isPlaying) {
+                    queueManager.player.pause();
+                    queueManager.isPaused = true;
+                }
+            } else if (action === 'skip') {
+                if (queueManager.isPlaying && queueManager.currentTrack) {
+                    queueManager.player.stop();
+                }
+            } else if (action === 'stop') {
+                queueManager.queue = [];
+                queueManager.player.stop();
+                queueManager.isPlaying = false;
+                queueManager.currentTrack = null;
+            } else if (action === 'loop') {
+                const modes = ['off', 'track', 'queue'];
+                const nextIdx = (modes.indexOf(queueManager.loopMode) + 1) % modes.length;
+                queueManager.loopMode = modes[nextIdx];
+            } else if (action === 'shuffle') {
+                for (let i = queueManager.queue.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [queueManager.queue[i], queueManager.queue[j]] = [queueManager.queue[j], queueManager.queue[i]];
+                }
+            } else if (action === 'autoplay') {
+                queueManager.autoplay = !queueManager.autoplay;
+            } else if (action === 'voldown') {
+                queueManager.volume = Math.max(10, queueManager.volume - 10);
+            } else if (action === 'volup') {
+                queueManager.volume = Math.min(100, queueManager.volume + 10);
+            } else if (action === 'queue') {
+                const musicCmd = require('./commands/music.js');
+                const origGetSubcommand = interaction.options ? interaction.options.getSubcommand : null;
+                try {
+                    interaction.options = { getSubcommand: () => 'queue' };
+                    return await musicCmd.execute(interaction);
+                } catch(e) {}
+            }
+
+            const embed = buildNowPlayingEmbed(queueManager);
+            const components = buildNowPlayingButtons(queueManager);
+            return await interaction.update({ embeds: [embed], components }).catch(() => null);
+        }
+
         if (interaction.customId.startsWith('ticket_')) {
             const { handleTicketButton } = require('./src/systems/tickets/ticketEngine.js');
             return await handleTicketButton(interaction);
@@ -312,6 +379,37 @@ client.on('messageCreate', async (message) => {
         setTimeout(() => xpCooldowns.delete(userId), 60000); // 1-minute window lock
     }
 
+    // Prefix Help Command Handler (khelp / uhelp / Uhelp / !help / cherry help)
+    const textTrim = message.content.trim().toLowerCase();
+    if (['khelp', 'uhelp', '!help', 'cherry help'].some(p => textTrim.startsWith(p))) {
+        try {
+            const helpModule = require('./commands/help.js');
+            const helpFn = helpModule.buildCherryHelpEmbed || helpModule.buildUwUHelpEmbed;
+            const { embed, components } = helpFn(message.client);
+            return await message.reply({ embeds: [embed], components });
+        } catch (helpErr) {
+            console.error('Prefix help error:', helpErr);
+        }
+    }
+
+    // Universal UwU Text Prefix Router (e.g. kbalance, kdaily, kwork, khunt, kship, kfortune, kavatar, etc.)
+    try {
+        const { handleUwUTextPrefix } = require('./src/systems/uwuPrefixRouter.js');
+        const handledPrefix = await handleUwUTextPrefix(message);
+        if (handledPrefix) return;
+    } catch (uwuPrefixErr) {
+        console.error('Error handling UwU text prefix:', uwuPrefixErr.message);
+    }
+
+    // Expressive Roleplay Prefix Commands (e.g. bhug @User, bkiss @User)
+    try {
+        const { handleRoleplayPrefixMessage } = require('./src/systems/roleplayEngine.js');
+        const handled = await handleRoleplayPrefixMessage(message);
+        if (handled) return;
+    } catch (rpErr) {
+        console.error('Error handling roleplay prefix command:', rpErr.message);
+    }
+
     // Mimu-style Autoresponder Check
     try {
         const match = db.matchAutoresponder(guildId, message.content);
@@ -326,6 +424,16 @@ client.on('messageCreate', async (message) => {
     } catch (autoErr) {
         console.error('Error handling autoresponder trigger:', autoErr.message);
     }
+
+    // CG x UwU Auto-Reaction Listener for chat engagement
+    try {
+        const lowerMsg = message.content.toLowerCase();
+        if (/\b(uwu|owo|cg|cherry|cute|rawr)\b/i.test(lowerMsg)) {
+            const cuteReactions = ['🌸', '💖', '✨', '🥺', '🎀'];
+            const randomEmoji = cuteReactions[Math.floor(Math.random() * cuteReactions.length)];
+            await message.react(randomEmoji).catch(() => null);
+        }
+    } catch (reactErr) {}
 });
 
 // Welcome & Leave Embed Dispatchers
@@ -379,6 +487,15 @@ client.on('guildMemberRemove', async (member) => {
         await channel.send({ content: msg });
     } catch (err) {
         console.error('Error handling guildMemberRemove:', err.message);
+    }
+});
+
+// Voice State Updates Router (Auto-Reconnect for 24/7 Voice Standby)
+client.on('voiceStateUpdate', (oldState, newState) => {
+    try {
+        handleVoiceStateUpdate(client, oldState, newState);
+    } catch (err) {
+        console.error('Error handling voiceStateUpdate:', err.message);
     }
 });
 

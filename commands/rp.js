@@ -1,29 +1,30 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const db = require('../database.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('rp')
-        .setDescription('🎭 Perform expressive RPG roleplay actions in chat')
+        .setDescription('🎭 Perform expressive RPG roleplay actions in chat & manage animated GIFs')
         .addSubcommand(sub =>
             sub.setName('hug')
                 .setDescription('💖 Give another adventurer a warm hug')
-                .addUserOption(opt => opt.setName('target').setDescription('Who to hug').setRequired(true)))
+                .addUserOption(opt => opt.setName('target').setDescription('Who to hug').setRequired(false)))
         .addSubcommand(sub =>
             sub.setName('kiss')
                 .setDescription('💋 Plant a sweet kiss on another adventurer')
-                .addUserOption(opt => opt.setName('target').setDescription('Who to kiss').setRequired(true)))
+                .addUserOption(opt => opt.setName('target').setDescription('Who to kiss').setRequired(false)))
         .addSubcommand(sub =>
             sub.setName('slap')
                 .setDescription('💥 Slap another adventurer across the face!')
-                .addUserOption(opt => opt.setName('target').setDescription('Who to slap').setRequired(true)))
+                .addUserOption(opt => opt.setName('target').setDescription('Who to slap').setRequired(false)))
         .addSubcommand(sub =>
             sub.setName('pat')
                 .setDescription('👋 Gently pat another adventurer on the head')
-                .addUserOption(opt => opt.setName('target').setDescription('Who to pat').setRequired(true)))
+                .addUserOption(opt => opt.setName('target').setDescription('Who to pat').setRequired(false)))
         .addSubcommand(sub =>
             sub.setName('highfive')
                 .setDescription('🙌 Share a high-five with another adventurer')
-                .addUserOption(opt => opt.setName('target').setDescription('Who to high-five').setRequired(true)))
+                .addUserOption(opt => opt.setName('target').setDescription('Who to high-five').setRequired(false)))
         .addSubcommand(sub =>
             sub.setName('wave')
                 .setDescription('👋 Wave hello to someone')
@@ -54,15 +55,15 @@ module.exports = {
         .addSubcommand(sub =>
             sub.setName('boop')
                 .setDescription('👉 Boop another adventurer on the nose!')
-                .addUserOption(opt => opt.setName('target').setDescription('Who to boop').setRequired(true)))
+                .addUserOption(opt => opt.setName('target').setDescription('Who to boop').setRequired(false)))
         .addSubcommand(sub =>
             sub.setName('cuddle')
                 .setDescription('🤗 Cuddle up closely with someone warm')
-                .addUserOption(opt => opt.setName('target').setDescription('Who to cuddle').setRequired(true)))
+                .addUserOption(opt => opt.setName('target').setDescription('Who to cuddle').setRequired(false)))
         .addSubcommand(sub =>
             sub.setName('nuzzle')
                 .setDescription('🐱 Nuzzle affectionately against someone')
-                .addUserOption(opt => opt.setName('target').setDescription('Who to nuzzle').setRequired(true)))
+                .addUserOption(opt => opt.setName('target').setDescription('Who to nuzzle').setRequired(false)))
         .addSubcommand(sub =>
             sub.setName('pout')
                 .setDescription('🥺 Pout cutely when you don\'t get your way')
@@ -73,110 +74,90 @@ module.exports = {
         .addSubcommand(sub =>
             sub.setName('bite')
                 .setDescription('🦷 Playfully bite another adventurer!')
-                .addUserOption(opt => opt.setName('target').setDescription('Who to bite').setRequired(true))),
+                .addUserOption(opt => opt.setName('target').setDescription('Who to bite').setRequired(false)))
+        .addSubcommand(sub =>
+            sub.setName('addgif')
+                .setDescription('🖼️ Add a custom animated GIF to multi-loop pool')
+                .addStringOption(opt => opt.setName('action').setDescription('Action key (hug, kiss, pat, etc.)').setRequired(true))
+                .addStringOption(opt => opt.setName('url').setDescription('Direct GIF image URL').setRequired(true)))
+        .addSubcommand(sub =>
+            sub.setName('listgifs')
+                .setDescription('📜 View custom animated GIFs in multi-loop library')
+                .addStringOption(opt => opt.setName('action').setDescription('Filter by action key').setRequired(false)))
+        .addSubcommand(sub =>
+            sub.setName('removegif')
+                .setDescription('🗑️ Remove a custom GIF from multi-loop pool')
+                .addIntegerOption(opt => opt.setName('id').setDescription('ID of custom GIF to remove').setRequired(true))),
 
     async execute(interaction) {
         await interaction.deferReply();
 
-        const user = interaction.user;
         const subcommand = interaction.options.getSubcommand();
-        const target = interaction.options.getUser('target');
+        const { ROLEPLAY_ACTIONS, buildRoleplayEmbed } = require('../src/systems/roleplayEngine.js');
 
-        let message = '';
-        let color = '#FF69B4'; // Default romantic/expressive pink
+        // Subcommand 1: addgif
+        if (subcommand === 'addgif') {
+            const rawAction = interaction.options.getString('action').toLowerCase().replace(/^k/, '');
+            const url = interaction.options.getString('url').trim();
 
-        switch (subcommand) {
-            case 'hug':
-                message = `💖 <@${user.id}> wraps their arms around <@${target.id}> in a warm, cozy hug!`;
-                color = '#FF69B4';
-                break;
-            case 'kiss':
-                message = `💋 <@${user.id}> plants a sweet kiss on <@${target.id}>'s cheek!`;
-                color = '#FF1493';
-                break;
-            case 'slap':
-                message = `💥 *Smack!* <@${user.id}> slaps <@${target.id}> across the face! Ouch!`;
-                color = '#ED4245';
-                break;
-            case 'pat':
-                message = `👋 <@${user.id}> gently pats <@${target.id}> on the head. "There, there."`;
-                color = '#FEE75C';
-                break;
-            case 'highfive':
-                message = `🙌 *Clap!* <@${user.id}> and <@${target.id}> share an epic high-five!`;
-                color = '#3498DB';
-                break;
-            case 'wave':
-                message = target 
-                    ? `👋 <@${user.id}> waves hello to <@${target.id}>!`
-                    : `👋 <@${user.id}> waves hello to everyone in the room!`;
-                color = '#2ECC71';
-                break;
-            case 'bow':
-                message = target 
-                    ? `🙇 <@${user.id}> bows respectfully to <@${target.id}>.`
-                    : `🙇 <@${user.id}> bows deeply and respectfully.`;
-                color = '#99AAB5';
-                break;
-            case 'laugh':
-                message = `😆 <@${user.id}> bursts out laughing! "Hahaha!"`;
-                color = '#F1C40F';
-                break;
-            case 'cry':
-                message = `😢 Tears fill <@${user.id}>'s eyes as they weep in sorrow. "Sniff..."`;
-                color = '#7289DA';
-                break;
-            case 'dance':
-                message = `🕺 <@${user.id}> breaks into a spectacular, high-energy dance! *Boogie!*`;
-                color = '#9B59B6';
-                break;
-            case 'sleep':
-                message = `😴 <@${user.id}> curls up on the ground and falls fast asleep. *Zzz...*`;
-                color = '#2C3E50';
-                break;
-            case 'sit':
-                message = `🪑 <@${user.id}> sits down to rest their weary legs. Ah, comfortable!`;
-                color = '#708090';
-                break;
-            case 'cheer':
-                message = target 
-                    ? `🎉 <@${user.id}> cheers loudly for <@${target.id}>! "Woohoo! Let's go!"`
-                    : `🎉 <@${user.id}> cheers loudly with excitement! "Woohoo!"`;
-                color = '#E67E22';
-                break;
-            case 'boop':
-                message = `👉 *Boop!* <@${user.id}> reaches out and boops <@${target.id}> right on the nose! 💕`;
-                color = '#FF9EE2';
-                break;
-            case 'cuddle':
-                message = `🤗 <@${user.id}> snuggles up and cuddles closely with <@${target.id}>! Warm and cozy~`;
-                color = '#FF69B4';
-                break;
-            case 'nuzzle':
-                message = `🐱 <@${user.id}> nuzzles affectionately against <@${target.id}>! *Purrrr...*`;
-                color = '#FFB6C1';
-                break;
-            case 'pout':
-                message = target 
-                    ? `🥺 <@${user.id}> pouts cutely at <@${target.id}>... *"Hmph!"*`
-                    : `🥺 <@${user.id}> crosses their arms and pouts cutely... *"Hmph!"*`;
-                color = '#FF6B6B';
-                break;
-            case 'blush':
-                message = `😳 <@${user.id}>'s cheeks turn bright red as they blush furiously! ( >w< )`;
-                color = '#FF477E';
-                break;
-            case 'bite':
-                message = `🦷 *Nom!* <@${user.id}> gives <@${target.id}> a cute, playful little bite! 💖`;
-                color = '#E63946';
-                break;
+            if (!ROLEPLAY_ACTIONS[rawAction]) {
+                return interaction.editReply(`⚠️ **Invalid Action!** Valid actions: \`${Object.keys(ROLEPLAY_ACTIONS).join(', ')}\``);
+            }
+
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                return interaction.editReply('⚠️ **Invalid URL!** URL must start with `http://` or `https://`.');
+            }
+
+            db.addCustomRoleplayGif(rawAction, url, interaction.user.username);
+            const embed = new EmbedBuilder()
+                .setColor('#2ECC71')
+                .setTitle('✨ Custom Animated GIF Saved!')
+                .setDescription(`Successfully added new GIF for **${rawAction.toUpperCase()}**!\nIt will now multi-loop when using \`/rp ${rawAction}\` or \`k${rawAction}\`.`)
+                .setImage(url)
+                .setTimestamp();
+
+            return interaction.editReply({ embeds: [embed] });
         }
 
-        const rpEmbed = new EmbedBuilder()
-            .setColor(color)
-            .setDescription(message)
-            .setTimestamp();
+        // Subcommand 2: listgifs
+        if (subcommand === 'listgifs') {
+            const filterAction = interaction.options.getString('action')?.toLowerCase().replace(/^k/, '');
+            const gifs = filterAction ? db.getCustomRoleplayGifs(filterAction) : db.getAllCustomRoleplayGifs();
 
-        await interaction.editReply({ embeds: [rpEmbed] });
+            if (!gifs || gifs.length === 0) {
+                return interaction.editReply(filterAction ? `ℹ️ No custom GIFs found for **${filterAction}**.` : 'ℹ️ No custom GIFs found. Add one with `/rp addgif`!');
+            }
+
+            const lines = gifs.slice(0, 15).map(g => `**[ID ${g.id}]** \`${g.actionKey}\` added by ${g.addedBy}: ${g.gifUrl}`);
+            const embed = new EmbedBuilder()
+                .setColor('#3498DB')
+                .setTitle('🖼️ Custom Animated GIFs Library')
+                .setDescription(lines.join('\n') + (gifs.length > 15 ? `\n*...and ${gifs.length - 15} more*` : ''))
+                .setFooter({ text: 'Use /rp removegif id:<id> to remove a custom GIF.' })
+                .setTimestamp();
+
+            return interaction.editReply({ embeds: [embed] });
+        }
+
+        // Subcommand 3: removegif
+        if (subcommand === 'removegif') {
+            const targetId = interaction.options.getInteger('id');
+            const removed = db.removeCustomRoleplayGif(targetId);
+            if (removed) {
+                return interaction.editReply(`✅ Successfully removed custom GIF **ID ${targetId}** from multi-loop library!`);
+            } else {
+                return interaction.editReply(`⚠️ No custom GIF found with **ID ${targetId}**.`);
+            }
+        }
+
+        // Default Roleplay Actions
+        const target = interaction.options.getUser('target') || interaction.user;
+        const rpEmbed = await buildRoleplayEmbed(subcommand, interaction.user, target);
+
+        if (rpEmbed) {
+            await interaction.editReply({ embeds: [rpEmbed] });
+        } else {
+            await interaction.editReply({ content: 'Failed to generate roleplay action.' });
+        }
     }
 };

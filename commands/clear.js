@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const {SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -15,7 +15,7 @@ module.exports = {
     async execute(interaction) {
         // 1. MUST BE FIRST: Secure the interaction immediately!
         // We use deferReply so Discord knows the bot is working on deleting messages.
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             const amount = interaction.options.getInteger('amount');

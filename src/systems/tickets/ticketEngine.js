@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
+const {EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const db = require('../../database/index.js');
 
 async function createTicketPanel(channel, title = '🎫 Customer Support & Help Desk', description = 'Need help? Click the button below to open a private ticket with our staff team.') {
@@ -72,11 +72,11 @@ async function handleTicketButton(interaction) {
 
         await interaction.reply({
             content: `✅ Ticket created! Head over to ${ticketChannel.toString()} to view your ticket.`,
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     } else if (customId === 'ticket_claim') {
         if (!member.permissions.has(PermissionFlagsBits.ManageMessages)) {
-            return await interaction.reply({ content: '❌ Only staff members can claim tickets.', ephemeral: true });
+            return await interaction.reply({ content: '❌ Only staff members can claim tickets.', flags: MessageFlags.Ephemeral });
         }
 
         const embed = EmbedBuilder.from(interaction.message.embeds[0])

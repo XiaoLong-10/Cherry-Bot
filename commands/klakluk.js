@@ -1,5 +1,4 @@
-const { 
-    SlashCommandBuilder, 
+const {SlashCommandBuilder, 
     EmbedBuilder, 
     ActionRowBuilder, 
     ButtonBuilder, 
@@ -7,8 +6,7 @@ const {
     AttachmentBuilder,
     ModalBuilder,
     TextInputBuilder,
-    TextInputStyle
-} = require('discord.js');
+    TextInputStyle, MessageFlags } = require('discord.js');
 const { createCanvas, loadImage } = require('canvas');
 const GIFEncoder = require('gif-encoder-2'); 
 const path = require('path');
@@ -326,7 +324,7 @@ module.exports = {
 
                     const inputVal = modalSubmit.fields.getTextInputValue('kk_modal_input');
                     
-                    const currentBalance = db.getBalance(pId, interaction.guild.id);
+                    const currentBalance = db.getBalance(pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'));
 
                     if (!playerBets[pId]) {
                         playerBets[pId] = { username: pUsername, tiger: 0, gourd: 0, rooster: 0, fish: 0, crab: 0, shrimp: 0 };
@@ -339,22 +337,22 @@ module.exports = {
                     const betAmount = parseBetAmount(inputVal, currentBalance, currentSymbolBet, totalPlayerStaked);
 
                     if (isNaN(betAmount) || betAmount <= 0) {
-                        return modalSubmit.followUp({ content: `❌ **${pUsername}**, invalid bet amount entered! Enter a positive number (e.g. 1000, 50k) or 'all'/'half'.`, ephemeral: true });
+                        return modalSubmit.followUp({ content: `❌ **${pUsername}**, invalid bet amount entered! Enter a positive number (e.g. 1000, 50k) or 'all'/'half'.`, flags: MessageFlags.Ephemeral });
                     }
 
                     // Balance check
                     if (currentBalance < totalPlayerStaked + betAmount) {
-                        return modalSubmit.followUp({ content: `❌ **${pUsername}**, you don't have enough cherries in your wallet to place this bet! Balance: 🍒 **${currentBalance.toLocaleString()}**`, ephemeral: true });
+                        return modalSubmit.followUp({ content: `❌ **${pUsername}**, you don't have enough cherries in your wallet to place this bet! Balance: 🍒 **${currentBalance.toLocaleString()}**`, flags: MessageFlags.Ephemeral });
                     }
 
                     // Symbol limit check
                     if (currentSymbolBet + betAmount > 500000) {
-                        return modalSubmit.followUp({ content: `❌ **${pUsername}**, maximum bet limit per animal is **500,000** cherries! You can add at most **${(500000 - currentSymbolBet).toLocaleString()}** more.`, ephemeral: true });
+                        return modalSubmit.followUp({ content: `❌ **${pUsername}**, maximum bet limit per animal is **500,000** cherries! You can add at most **${(500000 - currentSymbolBet).toLocaleString()}** more.`, flags: MessageFlags.Ephemeral });
                     }
 
                     // Total limit check
                     if (totalPlayerStaked + betAmount > 10000000) {
-                        return modalSubmit.followUp({ content: `❌ **${pUsername}**, maximum total bet limit is **10,000,000** cherries! You can add at most **${(10000000 - totalPlayerStaked).toLocaleString()}** more.`, ephemeral: true });
+                        return modalSubmit.followUp({ content: `❌ **${pUsername}**, maximum total bet limit is **10,000,000** cherries! You can add at most **${(10000000 - totalPlayerStaked).toLocaleString()}** more.`, flags: MessageFlags.Ephemeral });
                     }
 
                     playerBets[pId][targetAnimal] += betAmount;
@@ -372,7 +370,7 @@ module.exports = {
             else if (i.customId === 'kk_action_mybets') {
                 const bets = playerBets[pId];
                 if (!bets) {
-                    return i.reply({ content: `📋 **${pUsername}**, you have not placed any bets in this round yet!`, ephemeral: true });
+                    return i.reply({ content: `📋 **${pUsername}**, you have not placed any bets in this round yet!`, flags: MessageFlags.Ephemeral });
                 }
 
                 const betSummary = [];
@@ -386,12 +384,12 @@ module.exports = {
                 });
 
                 if (playerTotal === 0) {
-                    return i.reply({ content: `📋 **${pUsername}**, you have not placed any bets in this round yet!`, ephemeral: true });
+                    return i.reply({ content: `📋 **${pUsername}**, you have not placed any bets in this round yet!`, flags: MessageFlags.Ephemeral });
                 }
 
                 return i.reply({
                     content: `📋 **Your current wagers on the table:**\n${betSummary.join('\n')}\nTotal Staked: 🍒 **${playerTotal.toLocaleString()}** cherries`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -399,7 +397,7 @@ module.exports = {
             else if (i.customId === 'kk_action_clear') {
                 const bets = playerBets[pId];
                 if (!bets) {
-                    return i.reply({ content: `❌ **${pUsername}**, you don't have any wagers to clear!`, ephemeral: true });
+                    return i.reply({ content: `❌ **${pUsername}**, you don't have any wagers to clear!`, flags: MessageFlags.Ephemeral });
                 }
 
                 let playerTotal = 0;
@@ -413,18 +411,18 @@ module.exports = {
                 });
 
                 if (playerTotal === 0) {
-                    return i.reply({ content: `❌ **${pUsername}**, you don't have any wagers to clear!`, ephemeral: true });
+                    return i.reply({ content: `❌ **${pUsername}**, you don't have any wagers to clear!`, flags: MessageFlags.Ephemeral });
                 }
 
                 // Update lobby embed
-                await i.reply({ content: `🗑️ Your wagers have been cleared and returned to your wallet.`, ephemeral: true });
+                await i.reply({ content: `🗑️ Your wagers have been cleared and returned to your wallet.`, flags: MessageFlags.Ephemeral });
                 await interaction.editReply({ embeds: [updateEmbed(secondsLeft)] });
             }
 
             // 4. ROLL NOW BUTTON (HOST ONLY)
             else if (i.customId === 'kk_action_roll') {
                 if (pId !== interaction.user.id) {
-                    return i.reply({ content: `❌ Only the game host (<@${interaction.user.id}>) can start the roll early!`, ephemeral: true });
+                    return i.reply({ content: `❌ Only the game host (<@${interaction.user.id}>) can start the roll early!`, flags: MessageFlags.Ephemeral });
                 }
                 
                 await i.deferUpdate();
@@ -482,13 +480,13 @@ module.exports = {
 
                     const playerNet = playerWonTotal - playerBetTotal;
                     if (playerNet > 0) {
-                        db.addCoins(pId, interaction.guild.id, playerNet);
+                        db.addCoins(pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), playerNet);
                     } else if (playerNet < 0) {
-                        db.deductCoins(pId, interaction.guild.id, Math.abs(playerNet));
+                        db.deductCoins(pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), Math.abs(playerNet));
                     }
 
                     // Reward Active Play Experience points inside your profile handler database
-                    db.addXp(pId, interaction.guild.id, 35); 
+                    db.addXp(pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), 35); 
 
                     const sign = playerNet >= 0 ? '🟢 +' : '🔴 ';
                     scoreboardText += `• **${bets.username}**: Staked \`${playerBetTotal.toLocaleString()}\` | Result: ${sign}\`${playerNet.toLocaleString()}\` 🍒 *(+35 XP)*\n`;

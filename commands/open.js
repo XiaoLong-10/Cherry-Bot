@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const {SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../database.js');
 
 const REWARDS_POOL = [
@@ -22,14 +22,14 @@ module.exports = {
 
     async execute(interaction) {
         const userId = interaction.user.id;
-        const guildId = interaction.guild.id;
+        const guildId = interaction.guild ? (interaction.guild ? interaction.guild.id : 'GLOBAL') : 'GLOBAL';
 
         // Check if player has the mystery box
         const boxQty = db.getItemQuantity(userId, 'Premium Mystery Box 🎁');
         if (boxQty <= 0) {
             return await interaction.reply({ 
                 content: '❌ **No boxes to open!**\nYou do not have any **Premium Mystery Box 🎁** in your inventory.\n*Earn them by reaching Day 7 on your `/streak`!*',
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
 

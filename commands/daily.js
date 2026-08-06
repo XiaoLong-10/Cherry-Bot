@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const {SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, MessageFlags } = require('discord.js');
 const { createCanvas } = require('canvas');
 const db = require('../database.js');
 
@@ -96,17 +96,17 @@ module.exports = {
                 const timeLeft = (expirationTime - now) / 1000 / 60 / 60;
                 return interaction.reply({ 
                     content: `⏳ You already claimed your daily cherries! Try again in **${timeLeft.toFixed(1)}** hours.`, 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 });
             }
         }
 
-        db.addCoins(userId, interaction.guild.id, 500); // Add 500 coins to the user's balance
+        db.addCoins(userId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), 500); // Add 500 coins to the user's balance
         cooldowns.set(userId, now);
 
         await interaction.deferReply();
 
-        const balance = db.getBalance(userId, interaction.guild.id);
+        const balance = db.getBalance(userId, (interaction.guild ? interaction.guild.id : 'GLOBAL'));
         const buffer = await drawDailyVaultCard(interaction.user.username, 500, balance);
         const attachment = new AttachmentBuilder(buffer, { name: 'daily-claim.png' });
 

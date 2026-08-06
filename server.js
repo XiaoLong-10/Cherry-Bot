@@ -3602,14 +3602,43 @@ function startServer(client) {
     });
 
     // --- PROFILE CUSTOMIZATIONS ENDPOINTS ---
-    const availableThemes = ['Obsidian Dark', 'Cyberpunk Neon', 'Emerald Forest', 'Sunset Spark'];
-    const availableTitles = ['Novice Adventurer', 'Citadel Knight', 'Clover Master', 'Grandmaster Agriculturist', 'Mythic Beast Slayer'];
-    const availableBadges = ['Beta Tester', 'Staff Member', 'Certified Influencer', 'Bug Hunter', 'Marathon Runner'];
+    const availableThemes = [
+        'Obsidian Dark',
+        'Royal Gold',
+        'Cyberpunk Neon',
+        'Emerald Elite',
+        'Platinum Diamond',
+        'Soft Cherry',
+        'Midnight Royal'
+    ];
+    const availableTitles = [
+        'Novice Adventurer',
+        'Citadel Knight',
+        'Clover Master',
+        'Grandmaster Agriculturist',
+        'Mythic Beast Slayer',
+        'Cherry Tycoon',
+        'High Roller VIP',
+        'Empire Founder'
+    ];
+    const availableBadges = [
+        'Beta Tester',
+        'Staff Member',
+        'Certified Influencer',
+        'Bug Hunter',
+        'Marathon Runner',
+        'VIP Platinum',
+        'Cherry Tycoon',
+        'Master Investor'
+    ];
     const themeBackgrounds = {
         'Obsidian Dark': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e',
+        'Royal Gold': 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675',
         'Cyberpunk Neon': 'https://images.unsplash.com/photo-1550745165-9bc0b252726f',
-        'Emerald Forest': 'https://images.unsplash.com/photo-1448375240586-882707db888b',
-        'Sunset Spark': 'https://images.unsplash.com/photo-1475924156734-496f6cac6ec1'
+        'Emerald Elite': 'https://images.unsplash.com/photo-1448375240586-882707db888b',
+        'Platinum Diamond': 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23',
+        'Soft Cherry': 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809',
+        'Midnight Royal': 'https://images.unsplash.com/photo-1475924156734-496f6cac6ec1'
     };
 
     app.get('/api/profile/data/:userId', (req, res) => {

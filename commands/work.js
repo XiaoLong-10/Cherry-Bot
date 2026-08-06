@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const {SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../database.js');
 
 const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour cooldown
@@ -54,14 +54,14 @@ module.exports = {
 
     async execute(interaction) {
         const userId = interaction.user.id;
-        const guildId = interaction.guild.id;
+        const guildId = interaction.guild ? (interaction.guild ? interaction.guild.id : 'GLOBAL') : 'GLOBAL';
 
         // 1. Verify Character
         const char = db.getCharacter(userId);
         if (!char || !char.char_name) {
             return interaction.reply({
                 content: '⚠️ **You must create an RPG character first!**\nUse **`/character create`** to get started.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -73,7 +73,7 @@ module.exports = {
                 const remainingMin = Math.ceil((expiration - now) / 60000);
                 return interaction.reply({
                     content: `⏳ **You are exhausted!** Please rest before starting another shift. Returns in **${remainingMin} minutes**.`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
         }

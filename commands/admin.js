@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const {SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const db = require('../database.js');
 
 module.exports = {
@@ -51,9 +51,9 @@ module.exports = {
                         .setDescription('Role to automatically assign to new members'))),
 
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const subcommand = interaction.options.getSubcommand();
-        const guildId = interaction.guild.id;
+        const guildId = interaction.guild ? (interaction.guild ? interaction.guild.id : 'GLOBAL') : 'GLOBAL';
 
         if (subcommand === 'logs') {
             const limit = interaction.options.getInteger('limit') || 10;

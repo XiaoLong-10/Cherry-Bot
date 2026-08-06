@@ -14,30 +14,44 @@ for (const dir of commandDirs) {
     const commandFiles = fs.readdirSync(dir).filter(file => file.endsWith('.js'));
     for (const file of commandFiles) {
         const filePath = path.join(dir, file);
-        const command = require(filePath);
-        if (command && 'data' in command && 'execute' in command) {
-            commandsMap.set(command.data.name, command.data.toJSON());
+        try {
+            const command = require(filePath);
+            if (command && 'data' in command && 'execute' in command) {
+                commandsMap.set(command.data.name, command.data.toJSON());
+            }
+        } catch (err) {
+            console.error(`Failed to load command file ${file}:`, err.message);
         }
     }
 }
 
 const commands = Array.from(commandsMap.values());
-
-// Prepare the REST module
+const appId = process.env.APPLICATION_ID || process.env.CLIENT_ID;
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
     try {
-        console.log(`Started refreshing ${commands.length} application (/) commands.`);
+        console.log(`🧹 Refreshing Application (/) Commands...`);
+        console.log(`📦 Loaded ${commands.length} active slash commands from disk:`);
+        console.log(Array.from(commandsMap.keys()).map(name => ` - /${name}`).join('\n'));
 
-        // Deploying globally (reaches all servers your bot is in within a few seconds)
-        const data = await rest.put(
-            Routes.applicationCommands(process.env.APPLICATION_ID),
-            { body: commands },
+        // 1. Sync Global Slash Commands (overwrites and deletes removed commands)
+        const globalData = await rest.put(
+            Routes.applicationCommands(appId),
+            { body: commands }
         );
+        console.log(`✅ Successfully updated ${globalData.length} Global Slash Commands! (Deleted commands removed)`);
 
-        console.log(`Successfully reloaded ${data.length} application (/) commands globally!`);
+        // 2. Clear any lingering Guild-specific slash commands if GUILD_ID is defined
+        const guildId = process.env.DISCORD_GUILD_ID;
+        if (guildId) {
+            await rest.put(
+                Routes.applicationGuildCommands(appId, guildId),
+                { body: [] }
+            );
+            console.log(`✅ Successfully cleared lingering Guild-specific Slash Commands for Guild: ${guildId}`);
+        }
     } catch (error) {
-        console.error(error);
+        console.error('❌ Failed to deploy slash commands:', error);
     }
 })();

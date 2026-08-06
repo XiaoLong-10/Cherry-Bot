@@ -36,6 +36,7 @@ const ITEM_EMOJIS = {
 };
 
 function getEmoji(itemName) {
+    if (!itemName) return '📦';
     const name = itemName.toLowerCase();
     for (const [key, value] of Object.entries(ITEM_EMOJIS)) {
         if (name.includes(key)) return value;
@@ -43,124 +44,149 @@ function getEmoji(itemName) {
     return '📦';
 }
 
+function fitText(ctx, text, maxWidth) {
+    if (!text) return '';
+    if (ctx.measureText(text).width <= maxWidth) return text;
+    let truncated = text;
+    while (truncated.length > 3 && ctx.measureText(truncated + '...').width > maxWidth) {
+        truncated = truncated.slice(0, -1);
+    }
+    return truncated + '...';
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('balance')
-        .setDescription('✨ View your premium wallet balance and visual inventory item grid'),
+        .setDescription('✨ View wallet balance, bank savings, and visual inventory item grid')
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('User to check balance for')
+                .setRequired(false)),
 
     async execute(interaction) {
-        await interaction.deferReply(); 
+        if (!interaction.deferred && !interaction.replied) {
+            await interaction.deferReply().catch(() => {});
+        }
 
-        const userId = interaction.user.id;
-        const guildId = interaction.guild.id;
+        const targetUser = interaction.options.getUser('user') || interaction.user;
+        const userId = targetUser.id;
+        const guildId = interaction.guild ? interaction.guild.id : 'GLOBAL';
 
         try {
             const coins = db.getBalance(userId, guildId) || 0;
+            const char = db.getCharacter(userId) || {};
+            const bankCoins = char.bank_coins || 0;
+            const streakCount = char.streak_count || 0;
             const inventory = db.getInventory(userId) || [];
-            const activePlots = db.getFarmPlots(userId).length;
+            const activePlots = (db.getFarmPlots(userId) || []).length;
             const curr = db.getCurrencySettings(guildId);
 
-            // Setup Canvas
-            const width = 800;
-            const height = 500;
+            // Canvas Setup
+            const width = 850;
+            const height = 520;
             const canvas = createCanvas(width, height);
             const ctx = canvas.getContext('2d');
             ctx.imageSmoothingEnabled = true;
 
-            // 1. Dark Slate-Pink Gradient Background
-            const bgGrad = ctx.createRadialGradient(width/2, height/2, 50, width/2, height/2, width/2);
-            bgGrad.addColorStop(0, '#fce7f3'); // Cute pink
+            // 1. Soft Gradient Background
+            const bgGrad = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, width / 2);
+            bgGrad.addColorStop(0, '#fce7f3');
             bgGrad.addColorStop(1, '#fbcfe8');
             ctx.fillStyle = bgGrad;
             ctx.fillRect(0, 0, width, height);
 
             // 2. Double Frame Borders
-            const frameColor = '#db2777'; // pink-600
+            const frameColor = '#db2777';
             ctx.save();
-            ctx.fillStyle = '#fdf4ff'; // inner box
+            ctx.fillStyle = '#fdf4ff';
             ctx.strokeStyle = frameColor;
             ctx.lineWidth = 4;
             ctx.shadowColor = 'rgba(219, 39, 119, 0.4)';
             ctx.shadowBlur = 12;
             ctx.beginPath();
-            ctx.roundRect(40, 30, 720, 440, 16);
+            ctx.roundRect(35, 25, 780, 470, 16);
             ctx.fill();
             ctx.stroke();
             ctx.restore();
 
-            // Inner double border
+            // Inner Accent Border
             ctx.strokeStyle = '#fbcfe8';
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.roundRect(48, 38, 704, 424, 12);
+            ctx.roundRect(43, 33, 764, 454, 12);
             ctx.stroke();
 
-            // 3. Left Balance Box
+            // 3. Left Financial Account Box
             ctx.save();
             ctx.fillStyle = '#fce7f3';
             ctx.strokeStyle = '#f472b6';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.roundRect(70, 75, 230, 350, 12);
+            ctx.roundRect(65, 60, 250, 400, 14);
             ctx.fill();
             ctx.stroke();
             ctx.restore();
 
-            // Load User Avatar
+            // User Avatar
             let avatarImg = null;
             try {
-                const avatarUrl = interaction.user.displayAvatarURL({ extension: 'png', size: 128 });
+                const avatarUrl = targetUser.displayAvatarURL({ extension: 'png', size: 128 });
                 avatarImg = await loadImage(avatarUrl);
             } catch (e) {}
 
             ctx.save();
             ctx.beginPath();
-            ctx.arc(185, 155, 45, 0, Math.PI * 2);
+            ctx.arc(190, 135, 48, 0, Math.PI * 2);
             ctx.clip();
             if (avatarImg) {
-                ctx.drawImage(avatarImg, 140, 110, 90, 90);
+                ctx.drawImage(avatarImg, 142, 87, 96, 96);
             } else {
                 ctx.fillStyle = '#fbcfe8';
                 ctx.fill();
             }
             ctx.restore();
 
-            // Avatar Ring
+            // Avatar Outer Ring
             ctx.strokeStyle = frameColor;
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.arc(185, 155, 45, 0, Math.PI * 2);
+            ctx.arc(190, 135, 48, 0, Math.PI * 2);
             ctx.stroke();
 
             // Username
             ctx.fillStyle = '#831843';
-            ctx.font = 'bold 18px "Segoe UI Emoji", sans-serif';
+            ctx.font = 'bold 20px "Segoe UI Emoji", sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText(interaction.user.username, 185, 230);
+            const displayUser = fitText(ctx, targetUser.username, 220);
+            ctx.fillText(displayUser, 190, 212);
 
-            // Balances
+            // Financial Accounts Title
             ctx.fillStyle = '#9d174d';
             ctx.font = 'bold 11px sans-serif';
-            ctx.fillText('FINANCIAL ACCOUNTS', 185, 265);
+            ctx.fillText('FINANCIAL ACCOUNTS', 190, 245);
 
+            // Detailed Balances
             ctx.fillStyle = '#831843';
-            ctx.font = 'bold 15px sans-serif';
-            ctx.fillText(`🎀 Wallet: ${curr.symbol} ${coins.toLocaleString()} ${curr.name}`, 185, 295);
-            ctx.fillText(`🏠 Homestead: ${activePlots}/3 plots`, 185, 325);
+            ctx.font = 'bold 14px "Segoe UI Emoji", sans-serif';
+            ctx.fillText(`👛 Wallet: ${curr.symbol} ${coins.toLocaleString()}`, 190, 275);
+            ctx.fillText(`🏦 Bank: ${curr.symbol} ${bankCoins.toLocaleString()}`, 190, 310);
+            ctx.fillText(`✨ Net Liquid: ${curr.symbol} ${(coins + bankCoins).toLocaleString()}`, 190, 345);
+            ctx.fillText(`🏡 Homestead: ${activePlots}/3 plots`, 190, 380);
+            ctx.fillText(`🔥 Daily Streak: ${streakCount} days`, 190, 415);
 
-            // 4. Right Inventory Grid Box
+            // 4. Right Graphical Item Grid Box
             ctx.fillStyle = '#9d174d';
-            ctx.font = 'bold 11px sans-serif';
+            ctx.font = 'bold 12px sans-serif';
             ctx.textAlign = 'left';
-            ctx.fillText('🎒 GRAPHICAL ITEM GRID (MAX 12 SLOTS)', 330, 95);
+            const invHeader = `🎒 RPG ITEM BAG (${inventory.length} STACKS)`;
+            ctx.fillText(invHeader, 345, 80);
 
-            // Draw Item slots: 3 rows, 4 columns
             const gridCols = 4;
             const gridRows = 3;
-            const slotSize = 85;
+            const slotSize = 90;
             const spacing = 16;
-            const startX = 330;
-            const startY = 115;
+            const startX = 345;
+            const startY = 100;
 
             for (let r = 0; r < gridRows; r++) {
                 for (let c = 0; c < gridCols; c++) {
@@ -168,18 +194,18 @@ module.exports = {
                     const sx = startX + c * (slotSize + spacing);
                     const sy = startY + r * (slotSize + spacing);
 
-                    // Draw Slot Square
+                    // Draw Slot Box
                     ctx.save();
                     ctx.fillStyle = '#ffffff';
                     ctx.strokeStyle = 'rgba(244, 114, 182, 0.5)';
                     ctx.lineWidth = 1.5;
                     ctx.beginPath();
-                    ctx.roundRect(sx, sy, slotSize, slotSize, 8);
+                    ctx.roundRect(sx, sy, slotSize, slotSize, 10);
                     ctx.fill();
                     ctx.stroke();
                     ctx.restore();
 
-                    // If item exists in inventory
+                    // Render Item inside slot if exists
                     if (idx < inventory.length) {
                         const item = inventory[idx];
                         const emoji = getEmoji(item.itemName);
@@ -188,16 +214,24 @@ module.exports = {
                         ctx.font = '36px "Segoe UI Emoji", sans-serif';
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
-                        ctx.fillText(emoji, sx + slotSize/2, sy + slotSize/2 - 2);
+                        ctx.fillText(emoji, sx + slotSize / 2, sy + slotSize / 2 - 8);
+
+                        // Draw Item Name at bottom left of slot
+                        ctx.fillStyle = '#9d174d';
+                        ctx.font = 'bold 9px sans-serif';
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'alphabetic';
+                        const itemNameTrunc = fitText(ctx, item.itemName, slotSize - 32);
+                        ctx.fillText(itemNameTrunc, sx + 6, sy + slotSize - 8);
 
                         // Draw Quantity Pill (bottom right)
                         ctx.save();
-                        ctx.fillStyle = 'rgba(244, 114, 182, 0.85)';
+                        ctx.fillStyle = '#db2777';
                         ctx.beginPath();
-                        ctx.roundRect(sx + slotSize - 35, sy + slotSize - 20, 30, 16, 4);
+                        ctx.roundRect(sx + slotSize - 34, sy + slotSize - 20, 28, 15, 5);
                         ctx.fill();
 
-                        ctx.fillStyle = '#831843';
+                        ctx.fillStyle = '#ffffff';
                         ctx.font = 'bold 9px sans-serif';
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
@@ -211,27 +245,40 @@ module.exports = {
                 ctx.fillStyle = '#be185d';
                 ctx.font = 'italic 13px sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText('Your inventory bag is currently empty.', 530, 260);
+                ctx.fillText('Your item bag is currently empty.', 550, 260);
+                ctx.font = '11px sans-serif';
+                ctx.fillText('Use /work, /fish, or /mine to gather resources!', 550, 285);
+            } else if (inventory.length > 12) {
+                ctx.fillStyle = '#be185d';
+                ctx.font = 'bold 11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`+ ${inventory.length - 12} more items in bag`, 550, 435);
             }
 
-            const buffer = canvas.toBuffer('image/png');
+            const buffer = typeof canvas.encode === 'function' ? await canvas.encode('png') : canvas.toBuffer('image/png');
             const attachment = new AttachmentBuilder(buffer, { name: 'inventory-card.png' });
 
             const embed = new EmbedBuilder()
                 .setColor('#db2777')
-                .setTitle('🎀 CHERRY BALANCE & RPG INVENTORY')
-                .setDescription(`Inspect your pocket ${curr.name} and raw item resources below.`)
+                .setTitle(`🎀 ${targetUser.username}'s Cherry Balance & Inventory`)
+                .setDescription(`Inspect ${targetUser.username}'s liquid balance and RPG item resources below.`)
                 .setImage('attachment://inventory-card.png')
-                .setFooter({ text: `Requested By ${interaction.user.username} 🌟`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+                .setFooter({ text: `Requested By ${interaction.user.username} 🌟`, iconURL: interaction.user.displayAvatarURL({ extension: 'png' }) })
                 .setTimestamp();
 
             await interaction.editReply({ embeds: [embed], files: [attachment] });
-            
+
         } catch (error) {
             console.error('Balance command error:', error);
-            await interaction.editReply({ 
-                content: '⚠️ *An error occurred while compiling your visual item bag ledger.*' 
-            });
+            if (interaction.deferred || interaction.replied) {
+                await interaction.editReply({
+                    content: '⚠️ *An error occurred while compiling your visual item bag ledger.*'
+                }).catch(() => {});
+            } else {
+                await interaction.reply({
+                    content: '⚠️ *An error occurred while compiling your visual item bag ledger.*'
+                }).catch(() => {});
+            }
         }
     }
 };

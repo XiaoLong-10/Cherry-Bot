@@ -20,7 +20,7 @@ module.exports = {
 
     async execute(interaction) {
         const userId = interaction.user.id;
-        const guildId = interaction.guild.id;
+        const guildId = interaction.guild ? (interaction.guild ? interaction.guild.id : 'GLOBAL') : 'GLOBAL';
 
         // Verify Character
         const char = db.getCharacter(userId);

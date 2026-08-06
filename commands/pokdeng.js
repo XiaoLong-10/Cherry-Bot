@@ -1,5 +1,4 @@
-const { 
-    SlashCommandBuilder, 
+const {SlashCommandBuilder, 
     EmbedBuilder, 
     ActionRowBuilder, 
     ButtonBuilder, 
@@ -7,8 +6,7 @@ const {
     AttachmentBuilder,
     ModalBuilder,
     TextInputBuilder,
-    TextInputStyle
-} = require('discord.js');
+    TextInputStyle, MessageFlags } = require('discord.js');
 const { createCanvas } = require('canvas');
 const db = require('../database.js');
 
@@ -343,14 +341,14 @@ async function startPokdengRound(interaction, activePlayers) {
 
             if (outcome === 'win') {
                 const winProfit = p.bet * pRank.deng;
-                db.addCoins(p.pId, interaction.guild.id, p.bet + winProfit);
+                db.addCoins(p.pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), p.bet + winProfit);
                 summary += `• **${p.username}**: Win! 🍒 **+${winProfit.toLocaleString()}** (Matched **${pRank.name}** vs dealer **${dRank.name}**)\n` +
                            `  Hand: ${formatHandText(p.hand)}\n`;
             } else if (outcome === 'lose') {
                 const lossMultiplier = dRank.deng;
                 if (lossMultiplier > 1) {
                     const extraLoss = p.bet * (lossMultiplier - 1);
-                    db.deductCoins(p.pId, interaction.guild.id, extraLoss);
+                    db.deductCoins(p.pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), extraLoss);
                     summary += `• **${p.username}**: Lose (Dealer ${dRank.deng} Deng)! 🍒 **-${(p.bet * lossMultiplier).toLocaleString()}**\n` +
                                `  Hand: ${formatHandText(p.hand)}\n`;
                 } else {
@@ -358,11 +356,11 @@ async function startPokdengRound(interaction, activePlayers) {
                                `  Hand: ${formatHandText(p.hand)}\n`;
                 }
             } else {
-                db.addCoins(p.pId, interaction.guild.id, p.bet);
+                db.addCoins(p.pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), p.bet);
                 summary += `• **${p.username}**: Push (Tie)! 🍒 Returned bet.\n` +
                            `  Hand: ${formatHandText(p.hand)}\n`;
             }
-            db.addXp(p.pId, interaction.guild.id, 35);
+            db.addXp(p.pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), 35);
         });
 
         const endEmbed = new EmbedBuilder()
@@ -409,14 +407,14 @@ async function startPokdengRound(interaction, activePlayers) {
 
             if (outcome === 'win') {
                 const winProfit = p.bet * pRank.deng;
-                db.addCoins(p.pId, interaction.guild.id, p.bet + winProfit);
+                db.addCoins(p.pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), p.bet + winProfit);
                 summary += `• **${p.username}**: Win! 🍒 **+${winProfit.toLocaleString()}** (Matched **${pRank.name}** vs dealer **${finalDealerRank.name}**)\n` +
                            `  Hand: ${formatHandText(p.hand)}\n`;
             } else if (outcome === 'lose') {
                 const lossMultiplier = finalDealerRank.deng;
                 if (lossMultiplier > 1) {
                     const extraLoss = p.bet * (lossMultiplier - 1);
-                    db.deductCoins(p.pId, interaction.guild.id, extraLoss);
+                    db.deductCoins(p.pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), extraLoss);
                     summary += `• **${p.username}**: Lose (Dealer ${finalDealerRank.deng} Deng)! 🍒 **-${(p.bet * lossMultiplier).toLocaleString()}**\n` +
                                `  Hand: ${formatHandText(p.hand)}\n`;
                 } else {
@@ -424,11 +422,11 @@ async function startPokdengRound(interaction, activePlayers) {
                                `  Hand: ${formatHandText(p.hand)}\n`;
                 }
             } else {
-                db.addCoins(p.pId, interaction.guild.id, p.bet);
+                db.addCoins(p.pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), p.bet);
                 summary += `• **${p.username}**: Push (Tie)! 🍒 Returned bet.\n` +
                            `  Hand: ${formatHandText(p.hand)}\n`;
             }
-            db.addXp(p.pId, interaction.guild.id, 35);
+            db.addXp(p.pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), 35);
         });
 
         const finalEmbed = new EmbedBuilder()
@@ -493,11 +491,11 @@ async function startPokdengRound(interaction, activePlayers) {
         const player = playersDict[pId];
 
         if (!player) {
-            return i.reply({ content: '❌ You are not sitting at the table in this round!', ephemeral: true });
+            return i.reply({ content: '❌ You are not sitting at the table in this round!', flags: MessageFlags.Ephemeral });
         }
 
         if (player.hasDecided) {
-            return i.reply({ content: '❌ You have already finished your turn!', ephemeral: true });
+            return i.reply({ content: '❌ You have already finished your turn!', flags: MessageFlags.Ephemeral });
         }
 
         await i.deferUpdate();
@@ -559,14 +557,14 @@ async function startPokdengRound(interaction, activePlayers) {
 
             if (outcome === 'win') {
                 const winProfit = p.bet * pRank.deng;
-                db.addCoins(p.pId, interaction.guild.id, p.bet + winProfit);
+                db.addCoins(p.pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), p.bet + winProfit);
                 summary += `• **${p.username}**: Win! 🍒 **+${winProfit.toLocaleString()}** (Matched **${pRank.name}** vs dealer **${finalDealerRank.name}**)\n` +
                            `  Hand: ${formatHandText(p.hand)}\n`;
             } else if (outcome === 'lose') {
                 const lossMultiplier = finalDealerRank.deng;
                 if (lossMultiplier > 1) {
                     const extraLoss = p.bet * (lossMultiplier - 1);
-                    db.deductCoins(p.pId, interaction.guild.id, extraLoss);
+                    db.deductCoins(p.pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), extraLoss);
                     summary += `• **${p.username}**: Lose (Dealer ${finalDealerRank.deng} Deng)! 🍒 **-${(p.bet * lossMultiplier).toLocaleString()}**\n` +
                                `  Hand: ${formatHandText(p.hand)}\n`;
                 } else {
@@ -574,11 +572,11 @@ async function startPokdengRound(interaction, activePlayers) {
                                `  Hand: ${formatHandText(p.hand)}\n`;
                 }
             } else {
-                db.addCoins(p.pId, interaction.guild.id, p.bet);
+                db.addCoins(p.pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), p.bet);
                 summary += `• **${p.username}**: Push (Tie)! 🍒 Returned bet.\n` +
                            `  Hand: ${formatHandText(p.hand)}\n`;
             }
-            db.addXp(p.pId, interaction.guild.id, 35);
+            db.addXp(p.pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), 35);
         });
 
         const finalEmbed = new EmbedBuilder()
@@ -618,13 +616,13 @@ module.exports = {
             const pId = interaction.user.id;
             const pUsername = interaction.user.username;
 
-            const currentBalance = db.getBalance(pId, interaction.guild.id);
+            const currentBalance = db.getBalance(pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'));
 
             if (currentBalance < betOption) {
                 return interaction.editReply({ content: `❌ You do not have enough cherries! Balance: 🍒 **${currentBalance.toLocaleString()}**` });
             }
 
-            db.deductCoins(pId, interaction.guild.id, betOption);
+            db.deductCoins(pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), betOption);
 
             const soloPlayer = { pId, username: pUsername, bet: betOption, hand: [], hasDecided: false, status: 'Playing' };
             
@@ -687,7 +685,7 @@ module.exports = {
 
             if (i.customId === 'pd_action_join') {
                 if (Object.keys(lobbyPlayers).length >= 5) {
-                    return i.reply({ content: '❌ The table is full! (Max 5 players per round)', ephemeral: true });
+                    return i.reply({ content: '❌ The table is full! (Max 5 players per round)', flags: MessageFlags.Ephemeral });
                 }
 
                 const modal = new ModalBuilder()
@@ -715,19 +713,19 @@ module.exports = {
                     await modalSubmit.deferUpdate();
                     const inputVal = modalSubmit.fields.getTextInputValue('pd_modal_input');
 
-                    const currentBalance = db.getBalance(pId, interaction.guild.id);
+                    const currentBalance = db.getBalance(pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'));
 
                     const betAmount = parseBetAmount(inputVal, currentBalance);
 
                     if (isNaN(betAmount) || betAmount < 10 || betAmount > 100000) {
-                        return modalSubmit.followUp({ content: `❌ **${pUsername}**, bet must be a number between **10** and **100,000** cherries.`, ephemeral: true });
+                        return modalSubmit.followUp({ content: `❌ **${pUsername}**, bet must be a number between **10** and **100,000** cherries.`, flags: MessageFlags.Ephemeral });
                     }
 
                     if (currentBalance < betAmount) {
-                        return modalSubmit.followUp({ content: `❌ **${pUsername}**, you do not have enough cherries! Balance: 🍒 **${currentBalance.toLocaleString()}**`, ephemeral: true });
+                        return modalSubmit.followUp({ content: `❌ **${pUsername}**, you do not have enough cherries! Balance: 🍒 **${currentBalance.toLocaleString()}**`, flags: MessageFlags.Ephemeral });
                     }
 
-                    db.deductCoins(pId, interaction.guild.id, betAmount);
+                    db.deductCoins(pId, (interaction.guild ? interaction.guild.id : 'GLOBAL'), betAmount);
 
                     lobbyPlayers[pId] = { pId, username: pUsername, bet: betAmount, hand: [], hasDecided: false, status: 'Playing' };
 
@@ -739,7 +737,7 @@ module.exports = {
 
             } else if (i.customId === 'pd_action_deal') {
                 if (pId !== hostId) {
-                    return i.reply({ content: `❌ Only the game host (<@${hostId}>) can deal cards early!`, ephemeral: true });
+                    return i.reply({ content: `❌ Only the game host (<@${hostId}>) can deal cards early!`, flags: MessageFlags.Ephemeral });
                 }
                 await i.deferUpdate();
                 collector.stop('deal_now');
